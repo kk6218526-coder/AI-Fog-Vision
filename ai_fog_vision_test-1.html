@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ur">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AI Fog Vision — Camera Test</title>
+<style>
+:root{color-scheme:dark;--bg:#08111f;--panel:#111e30;--line:#263a52;--text:#eef5ff;--muted:#a8b8cc;--accent:#48c6c8}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#0b1930,#07101d 60%);color:var(--text);font:16px system-ui,-apple-system,"Noto Nastaliq Urdu",sans-serif}
+main{max-width:850px;margin:auto;padding:18px 14px 36px}.top{padding:12px 2px 18px}h1{font-size:25px;margin:0 0 6px}.sub{color:var(--muted);font-size:14px;line-height:1.6}
+.panel{background:rgba(17,30,48,.94);border:1px solid var(--line);border-radius:16px;padding:14px;margin:12px 0;box-shadow:0 10px 30px #0003}
+.screen{position:relative;background:#02060b;border-radius:12px;overflow:hidden;min-height:220px;aspect-ratio:16/9;display:grid;place-items:center}
+video,canvas{width:100%;height:100%;object-fit:contain;position:absolute;inset:0}video{display:none}canvas{display:block}
+#placeholder{color:#9eb0c5;text-align:center;padding:20px;line-height:1.7}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+button,select{border:1px solid #36516e;border-radius:10px;padding:12px 14px;background:#172b43;color:white;font-size:15px}
+button.primary{background:#087f88;border-color:#159da4;font-weight:700}button:disabled{opacity:.45}
+.control{margin:14px 0}.control label{display:flex;justify-content:space-between;gap:12px;color:#dce8f6;font-size:14px;margin-bottom:7px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.note{font-size:13px;line-height:1.65;color:#c1cede}.warn{border-left:3px solid #e6aa42;padding:10px 12px;background:#2a2419;border-radius:8px;color:#f6dfb5;font-size:13px;line-height:1.6}
+.status{display:flex;gap:8px;align-items:center;color:#a8b8cc;font-size:13px;margin-top:10px}.dot{width:8px;height:8px;border-radius:50%;background:#e0a43c}.dot.live{background:#43d39e}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.stat{background:#0b1727;border:1px solid var(--line);padding:10px;border-radius:10px}.stat b{display:block;font-size:18px}.stat span{color:var(--muted);font-size:12px}
+footer{color:#8396ad;font-size:12px;text-align:center;padding:14px}
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>AI Fog Vision — Live Camera Test</h1>
+    <div class="sub">دھند، رات اور عام روشنی میں کیمرے کی تصویر کا ابتدائی تجربہ</div>
+  </header>
+
+  <section class="panel">
+    <div class="screen">
+      <video id="video" playsinline autoplay muted></video>
+      <canvas id="view"></canvas>
+      <div id="placeholder">📷<br>کیمرا شروع کرنے کے لیے نیچے بٹن دبائیں<br><small>Browser camera permission مانگے گا</small></div>
+    </div>
+    <div class="row">
+      <button class="primary" id="start">Start Camera</button>
+      <button id="stop" disabled>Stop Camera</button>
+      <button id="snap" disabled>Save Test Image</button>
+      <select id="camera" aria-label="Camera selection"><option value="environment">Back camera</option><option value="user">Front camera</option></select>
+    </div>
+    <div class="status"><span class="dot" id="dot"></span><span id="status">کیمرا ابھی بند ہے</span></div>
+  </section>
+
+  <section class="panel">
+    <h3 style="margin:0 0 8px">تصویر بہتر کرنے کی سیٹنگز</h3>
+    <p class="note">یہ ابتدائی image-processing فلٹرز ہیں، حقیقی دھند کے پار دیکھنے یا AI سے چھپی چیزیں دریافت کرنے کی ضمانت نہیں۔ اصل اور بہتر کی گئی تصویر کا موازنہ کریں۔</p>
+    <div class="control"><label for="contrast">Contrast <b id="cv">115%</b></label><input id="contrast" type="range" min="70" max="180" value="115"></div>
+    <div class="control"><label for="brightness">Brightness <b id="bv">105%</b></label><input id="brightness" type="range" min="70" max="160" value="105"></div>
+    <div class="control"><label for="saturation">Color <b id="sv">110%</b></label><input id="saturation" type="range" min="0" max="180" value="110"></div>
+    <div class="control"><label for="sharp">Sharpness <b id="shv">0</b></label><input id="sharp" type="range" min="0" max="3" step=".5" value="0"></div>
+    <div class="row"><button id="reset">Reset settings</button><button id="original">Original / Enhanced</button></div>
+  </section>
+
+  <section class="panel">
+    <h3 style="margin:0 0 10px">ٹیسٹ ریکارڈ</h3>
+    <div class="stats">
+      <div class="stat"><b id="fps">—</b><span>Camera frame rate</span></div>
+      <div class="stat"><b id="size">—</b><span>Camera resolution</span></div>
+      <div class="stat"><b id="mode">Enhanced</b><span>Current view</span></div>
+      <div class="stat"><b>Not measured</b><span>Object distance / detection</span></div>
+    </div>
+    <p class="note" style="margin-bottom:0">اس پہلے ورژن میں گاڑی، انسان یا جانور کی AI شناخت اور میٹر میں فاصلے کی پیمائش ابھی شامل نہیں۔ یہ ورژن پہلے کیمرہ چلانے اور تصویر کے فلٹرز کو حقیقی دھند میں آزمانے کے لیے ہے۔</p>
+  </section>
+
+  <section class="warn">
+    <b>حفاظتی ہدایت:</b> یہ صرف ابتدائی تجرباتی ٹول ہے، گاڑی چلانے یا سڑک پر حفاظت کے لیے استعمال نہ کریں۔ ٹیسٹ ہمیشہ محفوظ جگہ پر، گاڑی کھڑی کرکے کریں۔ فلٹر تصویر کو زیادہ صاف دکھا سکتا ہے مگر اصل visibility نہیں بڑھاتا۔
+  </section>
+  <footer>Prototype 0.1 · Camera stays in your browser; no video is uploaded by this page.</footer>
+</main>
+<script>
+const video=document.getElementById('video'), canvas=document.getElementById('view'), ctx=canvas.getContext('2d',{willReadFrequently:true});
+const placeholder=document.getElementById('placeholder'), startBtn=document.getElementById('start'), stopBtn=document.getElementById('stop'), snapBtn=document.getElementById('snap');
+let stream=null, raf=0, frames=0, last=performance.now(), fps=0, enhanced=true, lastFps=performance.now();
+const $=id=>document.getElementById(id);
+const sliders=['contrast','brightness','saturation','sharp'];
+function updateLabels(){ $('cv').textContent=$('contrast').value+'%';$('bv').textContent=$('brightness').value+'%';$('sv').textContent=$('saturation').value+'%';$('shv').textContent=$('sharp').value; }
+sliders.forEach(id=>$(id).addEventListener('input',updateLabels));
+function setStatus(t,live=false){$('status').textContent=t;$('dot').className=live?'dot live':'dot';}
+async function startCamera(){
+ try{
+  if(stream) stopCamera();
+  stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:$('camera').value,width:{ideal:1280},height:{ideal:720}}});
+  video.srcObject=stream; await video.play();
+  placeholder.style.display='none';video.style.display='block';
+  startBtn.disabled=true;stopBtn.disabled=false;snapBtn.disabled=false;
+  const track=stream.getVideoTracks()[0], settings=track.getSettings();
+  $('size').textContent=(settings.width||'—')+' × '+(settings.height||'—');
+  setStatus('کیمرا چل رہا ہے — محفوظ جگہ سے منظر دکھائیں',true);
+  draw(); 
+ }catch(e){setStatus('کیمرا شروع نہیں ہوا: '+(e.message||e.name));}
+}
+function stopCamera(){
+ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+ cancelAnimationFrame(raf);video.pause();video.srcObject=null;video.style.display='none';
+ placeholder.style.display='block';startBtn.disabled=false;stopBtn.disabled=true;snapBtn.disabled=true;
+ ctx.clearRect(0,0,canvas.width,canvas.height);$('fps').textContent='—';$('size').textContent='—';setStatus('کیمرا بند ہے');
+}
+function draw(){
+ if(!stream||video.readyState<2){raf=requestAnimationFrame(draw);return;}
+ const w=video.videoWidth,h=video.videoHeight;
+ if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+ ctx.drawImage(video,0,0,w,h);
+ if(enhanced){
+  const image=ctx.getImageData(0,0,w,h),d=image.data;
+  const c=Number($('contrast').value)/100,b=Number($('brightness').value)/100,s=Number($('saturation').value)/100;
+  const intercept=128*(1-c);
+  for(let i=0;i<d.length;i+=4){
+   let r=(d[i]+intercept)*b,g=(d[i+1]+intercept)*b,bl=(d[i+2]+intercept)*b;
+   const gray=.299*r+.587*g+.114*bl;
+   d[i]=Math.max(0,Math.min(255,gray+(r-gray)*s));
+   d[i+1]=Math.max(0,Math.min(255,gray+(g-gray)*s));
+   d[i+2]=Math.max(0,Math.min(255,gray+(bl-gray)*s));
+  }
+  ctx.putImageData(image,0,0);
+ }
+ frames++;const now=performance.now();
+ if(now-lastFps>=1000){fps=Math.round(frames*1000/(now-lastFps));$('fps').textContent=fps+' FPS';frames=0;lastFps=now;}
+ $('mode').textContent=enhanced?'Enhanced':'Original';
+ raf=requestAnimationFrame(draw);
+}
+startBtn.addEventListener('click',startCamera);stopBtn.addEventListener('click',stopCamera);
+$('camera').addEventListener('change',()=>{if(stream)startCamera();});
+$('reset').addEventListener('click',()=>{$('contrast').value=115;$('brightness').value=105;$('saturation').value=110;$('sharp').value=0;updateLabels();});
+$('original').addEventListener('click',()=>{enhanced=!enhanced;$('mode').textContent=enhanced?'Enhanced':'Original';});
+snapBtn.addEventListener('click',()=>{
+ if(!stream)return;
+ const a=document.createElement('a');a.download='fog-vision-test-'+Date.now()+'.png';a.href=canvas.toDataURL('image/png');a.click();
+});
+updateLabels();
+if(!navigator.mediaDevices?.getUserMedia){startBtn.disabled=true;setStatus('اس براؤزر میں کیمرا API دستیاب نہیں۔ Chrome میں HTTPS صفحے سے کھولیں۔');}
+</script>
+</body>
+</html>
